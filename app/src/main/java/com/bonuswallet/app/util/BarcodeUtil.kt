@@ -90,5 +90,9 @@ object BarcodeUtil {
     }
 
     fun validateValue(value: String, formatStr: String): String? = validate(value, formatStr)
+
+    fun generateBarcodeBitmap(value: String, formatStr: String, width: Int = 1000, height: Int = 400): Bitmap? {
+        return generateBitmap(value, formatStr, width, height)
+    }
 }
 
