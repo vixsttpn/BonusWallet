@@ -7,7 +7,6 @@ import android.net.Uri
 import kotlin.math.min
 
 object AutoCropUtil {
-
     fun autoCrop(context: Context, uri: Uri): Bitmap? {
         return try {
             val input = context.contentResolver.openInputStream(uri) ?: return null
@@ -19,20 +18,15 @@ object AutoCropUtil {
             null
         }
     }
-
     fun autoCrop(bitmap: Bitmap): Bitmap {
         return smartCenterCrop(bitmap)
     }
-
     fun autoCrop(context: Context, bitmap: Bitmap): Bitmap {
         return smartCenterCrop(bitmap)
     }
-
-    // Smart center crop that keeps aspect 85x54 (bank card) and 85% of image
     private fun smartCenterCrop(bitmap: Bitmap): Bitmap {
         val w = bitmap.width
         val h = bitmap.height
-        // Target card ratio ~1.586
         val targetRatio = 1.586f
         var cropW = w
         var cropH = (w / targetRatio).toInt()
@@ -40,7 +34,6 @@ object AutoCropUtil {
             cropH = h
             cropW = (h * targetRatio).toInt()
         }
-        // Take 90% to remove borders
         cropW = (cropW * 0.92f).toInt()
         cropH = (cropH * 0.92f).toInt()
         val x = (w - cropW) / 2
@@ -52,4 +45,3 @@ object AutoCropUtil {
         }
     }
 }
-
