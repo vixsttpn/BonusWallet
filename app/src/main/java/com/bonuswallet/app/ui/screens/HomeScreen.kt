@@ -75,7 +75,7 @@ fun HomeScreen(
 @Composable
 fun CardItem(card: CardEntity, onClick: () -> Unit) {
     val bg = try { Color(android.graphics.Color.parseColor(card.colorHex)) } catch(e: Exception){ Color(0xFF171717) }
-    val isDark = bg.red()+bg.green()+bg.blue() < 1.5f
+    val isDark = bg.red+bg.green+bg.blue < 1.5f
     val textColor = if (isDark) Color.White else Color(0xFF171717)
 
     Card(
