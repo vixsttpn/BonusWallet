@@ -1,4 +1,3 @@
-
 package com.bonuswallet.app.ui.screens
 
 import android.Manifest
@@ -84,7 +83,7 @@ fun AddEditCardScreen(
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
                 OutlinedTextField(value = format, onValueChange = {}, readOnly = true, label = { Text("Тип штрих-кода") }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) }, modifier = Modifier.fillMaxWidth().menuAnchor())
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    BarcodeUtil.SUPPORTED_FORMATS.forEach { fmt ->
+                    for (fmt in BarcodeUtil.SUPPORTED_FORMATS) {
                         DropdownMenuItem(text = { Text(fmt) }, onClick = { format = fmt; expanded = false })
                     }
                 }
@@ -92,7 +91,7 @@ fun AddEditCardScreen(
 
             Text("Цвет карты", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf("#111111","#1a9d5e","#ff3b30","#007aff","#ffcc00","#8e44ad","#ff6b00").forEach { hex ->
+                for (hex in listOf("#111111","#1a9d5e","#ff3b30","#007aff","#ffcc00","#8e44ad","#ff6b00")) {
                     val selected = colorHex == hex
                     FilterChip(selected = selected, onClick = { colorHex = hex }, label = { Text(" ") }, modifier = Modifier.size(40.dp))
                 }
