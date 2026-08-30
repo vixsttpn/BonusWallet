@@ -1,4 +1,3 @@
-
 package com.bonuswallet.app.data
 
 import androidx.room.*
@@ -6,13 +5,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CardDao {
-    @Query("SELECT * FROM cards ORDER BY sortOrder ASC, createdAt ASC")
-    fun getAllFlow(): Flow<List<CardEntity>>
+    @Query("SELECT * FROM cards ORDER BY sortOrder ASC, id DESC")
+    fun getAllCards(): Flow<List<CardEntity>>
 
-    @Query("SELECT * FROM cards ORDER BY sortOrder ASC")
-    suspend fun getAll(): List<CardEntity>
-
-    @Query("SELECT * FROM cards WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM cards WHERE id = :id")
     suspend fun getById(id: Long): CardEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -24,12 +20,9 @@ interface CardDao {
     @Delete
     suspend fun delete(card: CardEntity)
 
-    @Query("DELETE FROM cards")
-    suspend fun deleteAll()
+    @Query("DELETE FROM cards WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
     @Query("UPDATE cards SET sortOrder = :order WHERE id = :id")
     suspend fun updateOrder(id: Long, order: Int)
-
-    @Query("SELECT MAX(sortOrder) FROM cards")
-    suspend fun getMaxOrder(): Int?
 }
