@@ -6,20 +6,29 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CardDao {
-    @Query("SELECT * FROM cards ORDER BY sortOrder ASC, createdAt ASC")
+    @Query("SELECT * FROM cards ORDER BY isFavorite DESC, showCount DESC, sortOrder ASC, updatedAt DESC")
     fun getAllFlow(): Flow<List<CardEntity>>
 
-    @Query("SELECT * FROM cards ORDER BY sortOrder ASC")
+    @Query("SELECT * FROM cards ORDER BY isFavorite DESC, sortOrder ASC")
     suspend fun getAll(): List<CardEntity>
 
-    @Query("SELECT * FROM cards WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM cards WHERE id = :id")
     suspend fun getById(id: Long): CardEntity?
 
-    @Query("SELECT * FROM cards WHERE cardNumber = :normalized OR barcodeValue = :normalized OR number = :normalized LIMIT 1")
-    suspend fun findByNumber(normalized: String): CardEntity?
+    @Query("SELECT * FROM cards WHERE cardNumber = :number OR barcodeValue = :number OR number = :number LIMIT 1")
+    suspend fun findDuplicate(number: String): CardEntity?
 
-    @Query("SELECT * FROM cards WHERE organizationName LIKE '%' || :query || '%' OR orgName LIKE '%' || :query || '%' OR cardName LIKE '%' || :query || '%' OR title LIKE '%' || :query || '%' OR cardNumber LIKE '%' || :query || '%' OR number LIKE '%' || :query || '%' OR providerId LIKE '%' || :query || '%' ORDER BY lastUsedAt DESC")
-    fun searchFlow(query: String): Flow<List<CardEntity>>
+    @Query("SELECT * FROM cards WHERE isFavorite = 1 ORDER BY lastShownAt DESC")
+    fun getFavoritesFlow(): Flow<List<CardEntity>>
+
+    @Query("SELECT * FROM cards WHERE category = :category ORDER BY sortOrder ASC")
+    fun getByCategoryFlow(category: String): Flow<List<CardEntity>>
+
+    @Query("SELECT * FROM cards WHERE profileId = :profileId ORDER BY sortOrder ASC")
+    fun getByProfileFlow(profileId: String): Flow<List<CardEntity>>
+
+    @Query("SELECT COUNT(*) FROM cards WHERE cardNumber = :number OR barcodeValue = :number")
+    suspend fun countByNumber(number: String): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(card: CardEntity): Long
@@ -33,22 +42,23 @@ interface CardDao {
     @Query("DELETE FROM cards")
     suspend fun deleteAll()
 
-    @Query("UPDATE cards SET sortOrder = :order, updatedAt = :now WHERE id = :id")
-    suspend fun updateOrder(id: Long, order: Int, now: Long = System.currentTimeMillis())
-
-    @Query("UPDATE cards SET lastUsedAt = :now, updatedAt = :now WHERE id = :id")
-    suspend fun updateLastUsed(id: Long, now: Long = System.currentTimeMillis())
-
-    @Query("UPDATE cards SET balance = :balance, bonusPoints = :points, cashBalance = :cash, balanceAvailable = :available, balanceSource = :source, lastBalanceUpdate = :updateTime, updatedAt = :now WHERE id = :id")
-    suspend fun updateBalance(id: Long, balance: Double?, points: Int?, cash: Double?, available: Boolean, source: String?, updateTime: Long?, now: Long = System.currentTimeMillis())
-
     @Query("SELECT MAX(sortOrder) FROM cards")
     suspend fun getMaxOrder(): Int?
 
-    @Query("SELECT * FROM cards ORDER BY lastUsedAt DESC")
-    fun getByLastUsedFlow(): Flow<List<CardEntity>>
+    @Query("UPDATE cards SET isFavorite = :fav WHERE id = :id")
+    suspend fun setFavorite(id: Long, fav: Boolean)
 
-    @Query("SELECT * FROM cards ORDER BY organizationName ASC, orgName ASC")
-    fun getByNameAscFlow(): Flow<List<CardEntity>>
+    @Query("UPDATE cards SET lastShownAt = :time, showCount = showCount + 1, lastUsedAt = :time WHERE id = :id")
+    suspend fun markShown(id: Long, time: Long)
+
+    // History
+    @Insert
+    suspend fun insertHistory(history: CardShowHistory)
+
+    @Query("SELECT * FROM show_history WHERE cardId = :cardId ORDER BY timestamp DESC LIMIT 50")
+    fun getHistoryFlow(cardId: Long): Flow<List<CardShowHistory>>
+
+    @Query("SELECT * FROM show_history ORDER BY timestamp DESC LIMIT 100")
+    fun getAllHistoryFlow(): Flow<List<CardShowHistory>>
 }
 

@@ -2,17 +2,18 @@
 package com.bonuswallet.app.ui.screens
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
 import android.view.WindowManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.InvertColors
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,52 +23,113 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bonuswallet.app.data.AppDatabase
 import com.bonuswallet.app.data.CardEntity
+import com.bonuswallet.app.data.CardShowHistory
+import com.bonuswallet.app.data.AppDatabase
 import com.bonuswallet.app.util.BarcodeUtil
 import kotlinx.coroutines.launch
+import android.provider.Settings
 
 @Composable
 fun FullscreenBarcodeScreen(card: CardEntity, onClose: () -> Unit) {
     val context = LocalContext.current
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     val scope = rememberCoroutineScope()
+    var inverted by remember { mutableStateOf(false) }
+    val db = remember { AppDatabase.getInstance(context) }
 
+    // 3. Автояркость на 100% и 22. Защита от скрина
     DisposableEffect(Unit) {
-        val window = (context as? Activity)?.window
-        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window?.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-        onDispose {
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-        }
-    }
+        val activity = context as? Activity
+        val window = activity?.window
+        val originalBrightness = window?.attributes?.screenBrightness ?: -1f
+        val originalFlags = window?.attributes?.flags ?: 0
 
-    LaunchedEffect(card) {
-        bitmap = BarcodeUtil.generateBitmap(card.getDisplayNumber(), card.getDisplayFormat(), 1600, if (card.getDisplayFormat() == "QR Code") 1600 else 600)
-        // Update lastUsedAt - requirement 21
+        window?.let {
+            val layoutParams = it.attributes
+            layoutParams.screenBrightness = 1.0f // 3. Автояркость 100%
+            it.attributes = layoutParams
+            it.addFlags(WindowManager.LayoutParams.FLAG_SECURE) // 22. Защита от скрина
+            it.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+
+        // 20. История показов
         scope.launch {
-            try {
-                val db = AppDatabase.getInstance(context)
-                db.cardDao().updateLastUsed(card.id)
-            } catch (e: Exception) { }
+            db.cardDao().markShown(card.id, System.currentTimeMillis())
+            db.cardDao().insertHistory(CardShowHistory(cardId = card.id))
+        }
+
+        onDispose {
+            window?.let {
+                val layoutParams = it.attributes
+                layoutParams.screenBrightness = originalBrightness
+                it.attributes = layoutParams
+                it.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                it.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.White).clickable { onClose() }, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize().padding(24.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text(card.getDisplayOrgName(), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.Black); Text(card.getDisplayTitle(), color = Color.Gray) }
-                IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Закрыть", tint = Color.Black) }
+    val bitmap: Bitmap? = remember(card, inverted) {
+        try {
+            val bmp = BarcodeUtil.generateBarcodeBitmap(card.getDisplayNumber(), card.getDisplayFormat(), 900, 320)
+            if (inverted && bmp != null) {
+                // 11. Инвертированный для кассы - делаем негатив
+                val invertedBmp = Bitmap.createBitmap(bmp.width, bmp.height, bmp.config)
+                for (x in 0 until bmp.width) {
+                    for (y in 0 until bmp.height) {
+                        val pixel = bmp.getPixel(x, y)
+                        val r = 255 - android.graphics.Color.red(pixel)
+                        val g = 255 - android.graphics.Color.green(pixel)
+                        val b = 255 - android.graphics.Color.blue(pixel)
+                        invertedBmp.setPixel(x, y, android.graphics.Color.rgb(r, g, b))
+                    }
+                }
+                invertedBmp
+            } else bmp
+        } catch(e: Exception) { null }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(if(inverted) Color.Black else Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Закрыть", tint = if(inverted) Color.White else Color.Black) }
+                Row {
+                    // 11. Инверт
+                    IconButton(onClick = { inverted = !inverted }) { Icon(Icons.Default.InvertColors, contentDescription = "Инверт", tint = if(inverted) Color.White else Color.Black) }
+                    // 10. Поделиться с семьей
+                    IconButton(onClick = {
+                        scope.launch {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "Карта ${card.getDisplayOrgName()}: ${card.getDisplayNumber()} (${card.getDisplayFormat()})")
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Поделиться картой"))
+                        }
+                    }) { Icon(Icons.Default.Share, contentDescription = "Поделиться", tint = if(inverted) Color.White else Color.Black) }
+                }
             }
-            Spacer(Modifier.weight(1f))
+
+            Spacer(Modifier.height(32.dp))
+
+            Text(card.getDisplayOrgName(), color = if(inverted) Color.White else Color.Black, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text(card.getDisplayTitle(), color = if(inverted) Color.Gray else Color.DarkGray, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Spacer(Modifier.height(24.dp))
+
             if (bitmap != null) {
-                Image(bitmap = bitmap!!.asImageBitmap(), contentDescription = card.getDisplayNumber(), modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(24.dp))
-                Text(card.getDisplayNumber(), color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+                Image(bitmap = bitmap.asImageBitmap(), contentDescription = "Штрих-код", modifier = Modifier.fillMaxWidth().background(if(inverted) Color.White else Color.Transparent, RoundedCornerShape(12.dp)).padding(12.dp))
+            } else {
+                Text("Не удалось сгенерировать штрих-код", color = if(inverted) Color.White else Color.Black)
             }
+
+            Spacer(Modifier.height(16.dp))
+            Text(card.getDisplayNumber(), color = if(inverted) Color.White else Color.Black, fontSize = 16.sp, modifier = Modifier.align(Alignment.CenterHorizontally), letterSpacing = 2.sp)
+
             Spacer(Modifier.weight(1f))
-            Text("Покажите карту на кассе • Сканирование штрих-кода", color = Color.Gray, fontSize = 12.sp)
+            Text(if(inverted) "Инвертированный режим для сканера" else "Яркость 100% включена", color = if(inverted) Color.Gray else Color.Gray, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
