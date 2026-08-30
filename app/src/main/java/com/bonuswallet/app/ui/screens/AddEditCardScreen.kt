@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.bonuswallet.app.data.CardEntity
 import com.bonuswallet.app.domain.detector.CardConfidence
@@ -39,12 +40,11 @@ fun AddEditCardScreen(
     onSave: (CardEntity) -> Unit,
     onBack: () -> Unit
 ) {
-    var step by remember { mutableStateOf(if (existing != null) 3 else 1) }
+    var step by remember { mutableStateOf(if (existing != null) 2 else 1) }
     var orgName by remember { mutableStateOf(existing?.getDisplayOrgName() ?: "") }
     var title by remember { mutableStateOf(existing?.getDisplayTitle() ?: "") }
     var number by remember { mutableStateOf(existing?.getDisplayNumber() ?: "") }
     var format by remember { mutableStateOf(existing?.getDisplayFormat() ?: "Автоматически") }
-    var colorHex by remember { mutableStateOf(existing?.colorHex ?: "#111111") }
     var providerId by remember { mutableStateOf(existing?.providerId ?: "generic") }
     var searchProviderQuery by remember { mutableStateOf("") }
     var showManualSelection by remember { mutableStateOf(false) }
@@ -52,23 +52,13 @@ fun AddEditCardScreen(
     var validationResult by remember { mutableStateOf(CardInputValidator.validate(number)) }
     var showBankCardDialog by remember { mutableStateOf(false) }
     var showCvvDialog by remember { mutableStateOf(false) }
-    var showDuplicateDialog by remember { mutableStateOf<CardEntity?>(null) }
 
     val context = LocalContext.current
 
-    // Update validation on number change
     LaunchedEffect(number) {
         validationResult = CardInputValidator.validate(number)
         if (validationResult.isPaymentCardHighRisk) {
             showBankCardDialog = true
-        }
-        // Auto-detect provider but with honest confidence
-        val best = validationResult.loyaltyResult.bestMatch
-        if (best != null && best.confidence != CardConfidence.UNKNOWN && best.confidence != CardConfidence.LOW) {
-            // Only auto-select if not generic low
-            if (best.providerId != "generic") {
-                // Show as suggestion, don't auto-force
-            }
         }
     }
 
@@ -98,7 +88,6 @@ fun AddEditCardScreen(
             Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Step 1: Popular selection - old convenient way
             if (step == 1 && existing == null) {
                 Text("Выберите карту", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Список популярных вариантов", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
@@ -118,7 +107,7 @@ fun AddEditCardScreen(
                             Text(theme.icon, modifier = Modifier.padding(end = 12.dp))
                             Column {
                                 Text(provider.providerInfo.displayName, fontWeight = FontWeight.SemiBold)
-                                Text(provider.providerInfo.description, fontSize = 12.sp.toInt().toFloat().let { MaterialTheme.typography.bodySmall.fontSize })
+                                Text(provider.providerInfo.description, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -148,7 +137,7 @@ fun AddEditCardScreen(
                                     items(providers) { p ->
                                         ListItem(
                                             headlineContent = { Text(p.providerInfo.displayName) },
-                                            supportingContent = { Text(p.providerInfo.description, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
+                                            supportingContent = { Text(p.providerInfo.description, style = MaterialTheme.typography.bodySmall) },
                                             modifier = Modifier.clickable {
                                                 providerId = p.providerInfo.id
                                                 orgName = p.providerInfo.displayName
@@ -167,21 +156,12 @@ fun AddEditCardScreen(
                 }
             }
 
-            // Step 2: Input number or scan
             if (step >= 2) {
-                if (step == 1) step = 2
-
                 Text("Шаг 2: Введите номер или сканируйте", fontWeight = FontWeight.Medium)
 
                 OutlinedTextField(
                     value = number,
-                    onValueChange = {
-                        number = it
-                        // Clear bank card if detected
-                        if (CardInputValidator.validate(it).isPaymentCardHighRisk) {
-                            // Don't save, will show dialog
-                        }
-                    },
+                    onValueChange = { number = it },
                     label = { Text("Номер карты / штрих-код") },
                     placeholder = { Text("1234567890123") },
                     modifier = Modifier.fillMaxWidth(),
@@ -198,28 +178,26 @@ fun AddEditCardScreen(
                     isError = validationResult.status == ValidationStatus.PAYMENT_CARD_DETECTED
                 )
 
-                // Confidence info - honest
                 if (number.isNotBlank()) {
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(8.dp)) {
                         Column(Modifier.padding(12.dp)) {
-                            Text("Определяем карту...", fontSize = MaterialTheme.typography.labelMedium.fontSize, fontWeight = FontWeight.Medium)
+                            Text("Определяем карту...", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.height(4.dp))
-                            Text(validationResult.confidenceMessage, fontSize = 13.sp.toInt().toFloat().let { MaterialTheme.typography.bodySmall.fontSize })
+                            Text(validationResult.confidenceMessage, style = MaterialTheme.typography.bodySmall)
                             if (validationResult.barcodeResult.isValid) {
-                                Text("Формат: ${validationResult.barcodeResult.formatString}", fontSize = 11.sp.toInt().toFloat().let { MaterialTheme.typography.bodySmall.fontSize })
+                                Text("Формат: ${validationResult.barcodeResult.formatString}", style = MaterialTheme.typography.bodySmall)
                             }
                             validationResult.loyaltyResult.bestMatch?.let {
-                                Text("Уровень достоверности: ${it.confidence}", fontSize = 11.sp.toInt().toFloat().let { MaterialTheme.typography.bodySmall.fontSize })
+                                Text("Уровень: ${it.confidence}", style = MaterialTheme.typography.bodySmall)
                             }
                             if (validationResult.paymentDetection.isPotentialPaymentCard) {
-                                Text("Подозрение на банковскую карту: ${validationResult.paymentDetection.reason}", color = MaterialTheme.colorScheme.error, fontSize = 11.sp.toInt().toFloat().let { MaterialTheme.typography.bodySmall.fontSize })
+                                Text("Подозрение на банковскую карту: ${validationResult.paymentDetection.reason}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
 
-                    // Show possible providers
                     if (validationResult.loyaltyResult.allMatches.isNotEmpty()) {
-                        Text("Возможные варианты:", fontWeight = FontWeight.Medium, fontSize = 12.sp.toInt().toFloat().let { MaterialTheme.typography.bodySmall.fontSize })
+                        Text("Возможные варианты:", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodySmall)
                         validationResult.loyaltyResult.allMatches.forEach { match ->
                             val theme = CardThemeResolver.resolve(match.providerId)
                             ListItem(
@@ -256,12 +234,10 @@ fun AddEditCardScreen(
                     singleLine = true
                 )
 
-                // Manual override
                 TextButton(onClick = { showManualSelection = true }) {
                     Text("Выбрать вручную: Я знаю какая это карта")
                 }
 
-                // Preview
                 if (number.isNotBlank() && orgName.isNotBlank()) {
                     Text("Предпросмотр:", fontWeight = FontWeight.Bold)
                     val previewEntity = CardEntity(
@@ -275,15 +251,23 @@ fun AddEditCardScreen(
                         providerId = providerId,
                         cardTheme = CardThemeResolver.resolve(providerId).id
                     )
-                    RealCardItem(card = previewEntity, onClick = {})
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardThemeResolver.resolve(providerId).background)
+                    ) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(previewEntity.getDisplayOrgName(), color = CardThemeResolver.resolve(providerId).textColor, fontWeight = FontWeight.Bold)
+                            Text(previewEntity.getDisplayTitle(), color = CardThemeResolver.resolve(providerId).secondaryTextColor, style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(8.dp))
+                            Text(previewEntity.getDisplayNumber(), color = CardThemeResolver.resolve(providerId).textColor)
+                        }
+                    }
                 }
 
-                // CVV Warning
                 OutlinedTextField(
                     value = "",
-                    onValueChange = {
-                        if (it.isNotBlank()) showCvvDialog = true
-                    },
+                    onValueChange = { if (it.isNotBlank()) showCvvDialog = true },
                     label = { Text("CVV/CVC (не поддерживается)") },
                     placeholder = { Text("Не вводите CVV") },
                     modifier = Modifier.fillMaxWidth(),
@@ -296,10 +280,7 @@ fun AddEditCardScreen(
                             showBankCardDialog = true
                             return@Button
                         }
-                        if (orgName.isBlank()) {
-                            return@Button
-                        }
-                        // Duplicate check would be done in parent via dao, but we show UI here
+                        if (orgName.isBlank()) return@Button
                         val entity = CardEntity(
                             organizationName = orgName.trim(),
                             orgName = orgName.trim(),
@@ -312,7 +293,7 @@ fun AddEditCardScreen(
                             format = validationResult.barcodeResult.formatString,
                             providerId = providerId,
                             cardTheme = CardThemeResolver.resolve(providerId).id,
-                            colorHex = colorHex,
+                            colorHex = "#111111",
                             sortOrder = 0,
                             status = when (validationResult.loyaltyResult.bestMatch?.confidence) {
                                 CardConfidence.HIGH -> "VERIFIED"
@@ -330,7 +311,6 @@ fun AddEditCardScreen(
                 }
             }
 
-            // Bank card dialog
             if (showBankCardDialog) {
                 AlertDialog(
                     onDismissRequest = { showBankCardDialog = false; number = "" },
@@ -352,23 +332,6 @@ fun AddEditCardScreen(
                     confirmButton = { TextButton(onClick = { showCvvDialog = false }) { Text("Понятно") } }
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun RealCardItem(card: CardEntity, onClick: () -> Unit) {
-    val theme = com.bonuswallet.app.domain.theme.CardThemeResolver.resolve(card.providerId.ifBlank { "default" })
-    androidx.compose.material3.Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = theme.background)
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Text(card.getDisplayOrgName(), color = theme.textColor, fontWeight = FontWeight.Bold)
-            Text(card.getDisplayTitle(), color = theme.secondaryTextColor, fontSize = MaterialTheme.typography.bodySmall.fontSize)
-            Spacer(Modifier.height(8.dp))
-            Text(card.getDisplayNumber(), color = theme.textColor)
         }
     }
 }
