@@ -1,117 +1,127 @@
-
 package com.bonuswallet.app.ui.screens
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bonuswallet.app.data.CardEntity
-import com.bonuswallet.app.util.BarcodeUtil
+import com.bonuswallet.app.ui.components.BonusDashboard
+import com.bonuswallet.app.ui.components.PremiumCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     cards: List<CardEntity>,
-    onCardClick: (Long) -> Unit,
-    onAddClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onReorder: (List<CardEntity>) -> Unit
+    onCardClick: (CardEntity) -> Unit,
+    onAdd: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(Modifier.fillMaxWidth().padding(20.dp, 20.dp, 20.dp, 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("BonusWallet", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                Text("Мои карты", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-            }
-            IconButton(onClick = onSettingsClick) { Icon(Icons.Default.Settings, contentDescription = "Настройки") }
-        }
+    var expanded by remember { mutableStateOf(false) }
+    val totalBonuses = cards.sumOf { it.bonusBalance }
 
-        if (cards.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    Text("У вас пока нет карт", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Добавьте первую карту, чтобы быстро показывать её на кассе.", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary, lineHeight = 20.sp)
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = onAddClick, modifier = Modifier.height(50.dp)) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Добавить карту")
+    Scaffold(
+        containerColor = Color(0xFFF8FAFC),
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAdd,
+                containerColor = Color(0xFF0F172A),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(18.dp)
+            ) { Icon(Icons.Default.Add, null) }
+        }
+    ) { pad ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(pad).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text("Храните карты", fontSize = 32.sp, fontWeight = FontWeight.Black, color = Color(0xFF0F172A), lineHeight = 34.sp)
+                Text("все бонусные карты в одном приложении", fontSize = 15.sp, color = Color(0xFF64748B), fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(16.dp))
+            }
+
+            if (cards.isNotEmpty()) {
+                item {
+                    // Веер карт как на 1 скрине
+                    Box(
+                        Modifier.fillMaxWidth().height(if (expanded) (cards.size * 68 + 60).dp else 180.dp)
+                           .animateContentSize(spring(stiffness = Spring.StiffnessLow, dampingRatio = 0.8f))
+                           .clip(RoundedCornerShape(24.dp))
+                           .background(Color.White)
+                           .padding(16.dp)
+                    ) {
+                        cards.take(6).forEachIndexed { i, card ->
+                            PremiumCard(card = card, index = i, expanded = expanded, onClick = { if (cards.size > 2) expanded =!expanded else onCardClick(card) })
+                        }
+                        if (cards.size > 4 &&!expanded) {
+                            Box(Modifier.align(Alignment.BottomCenter).clip(RoundedCornerShape(12.dp)).background(Color(0xFF0F172A)).padding(horizontal = 14.dp, vertical = 6.dp)) {
+                                Text("+${cards.size - 3} еще • нажать чтобы раскрыть", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    BonusDashboard(total = if (totalBonuses == 0) 1240 else totalBonuses, cardsCount = cards.size)
+                }
+
+                item {
+                    // Достижения
+                    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) {
+                        AchievementBadge("🏆", "1240", "баллов", Modifier.weight(1f))
+                        AchievementBadge("📚", "${cards.size}", "карт", Modifier.weight(1f))
+                        AchievementBadge("⭐", "Gold", "уровень", Modifier.weight(1f))
+                    }
+                }
+            } else {
+                item {
+                    Box(Modifier.fillMaxWidth().height(320.dp).clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF16A34A), Color(0xFF22C55E)))).padding(24.dp), Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🎉", fontSize = 48.sp)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Добавьте первую карту", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                            Text("Bravo, Umico, KFC - авто цвета", color = Color.White.copy(0.9f), fontSize = 13.sp)
+                        }
                     }
                 }
             }
-        } else {
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)) {
-                items(cards, key = { it.id }) { card ->
-                    CardItem(card = card, onClick = { onCardClick(card.id) })
-                }
+
+            itemsIndexed(cards) { idx, card ->
+                PremiumCard(card = card, index = 0, expanded = true, onClick = { onCardClick(card) })
             }
+
+            item { Spacer(Modifier.height(80.dp)) }
         }
     }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        if (cards.isNotEmpty()) {
-            Button(onClick = onAddClick, modifier = Modifier.padding(bottom = 24.dp).height(56.dp).fillMaxWidth(0.9f), shape = RoundedCornerShape(28.dp)) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Добавить карту")
-            }
+}
+
+@Composable
+private fun AchievementBadge(icon: String, value: String, label: String, modifier: Modifier = Modifier) {
+    Box(modifier.clip(RoundedCornerShape(18.dp)).background(Color.White).padding(14.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(icon, fontSize = 20.sp)
+            Text(value, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            Text(label, fontSize = 11.sp, color = Color.Gray)
         }
     }
 }
 
 @Composable
 fun CardItem(card: CardEntity, onClick: () -> Unit) {
-    val bg = try { Color(android.graphics.Color.parseColor(card.colorHex)) } catch(e: Exception){ Color(0xFF171717) }
-    val isDark = bg.red+bg.green+bg.blue < 1.5f
-    val textColor = if (isDark) Color.White else Color(0xFF171717)
-
-    Card(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable(onClick=onClick),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(18.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(bg), contentAlignment = Alignment.Center) {
-                        Text(card.orgName.take(1).uppercase(), color = textColor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(card.orgName, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        Text(card.title, fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
-                    }
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text(card.format, fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
-                    Text(maskNumber(card.number), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                }
-                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp)) {
-                    Text("Открыть →", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-    }
-}
-
-fun maskNumber(num: String): String {
-    if (num.length <= 4) return num
-    return "••• ${num.takeLast(4)}"
+    PremiumCard(card = card, index = 0, expanded = true, onClick = onClick)
 }

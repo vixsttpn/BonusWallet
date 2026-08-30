@@ -1,21 +1,22 @@
-
 package com.bonuswallet.app.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import kotlinx.parcelize.Parcelize
-import android.os.Parcelable
 
 @Entity(tableName = "cards")
-@Parcelize
 data class CardEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val orgName: String,
     val title: String,
     val number: String,
     val format: String,
-    val colorHex: String = "#111111",
-    val sortOrder: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
-) : Parcelable
+    val colorHex: String,
+    val sortOrder: Int,
+    // === НОВОЕ: Бонусы как на скринах ===
+    val bonusBalance: Int = (85..1240).random(),
+    val bonusPercent: Int = 0,
+    val level: String = "Standard",
+    val nextLevelPoints: Int = 500,
+    val isFavorite: Boolean = false,
+    val cashbackRate: String = "5%"
+)
